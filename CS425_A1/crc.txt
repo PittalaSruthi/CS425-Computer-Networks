@@ -1,0 +1,150 @@
+/*
+CS425 – Computer Networks
+CRC Frame Generation and Error Detection Program
+
+How to compile:
+    g++ crc.cpp -o crc
+
+How to run:
+    ./crc
+*/
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
+
+
+/* XOR operation used in CRC division */
+string xor_op(string a, string b) {
+    string result = "";
+    for (size_t i = 1; i < b.size(); i++) {
+        result += (a[i] == b[i]) ? '0' : '1';
+    }
+    return result;
+}
+
+
+/* Perform Modulo-2 division and return remainder */
+string mod2div(string dividend, string divisor) {
+    int pick = divisor.length();
+    string tmp = dividend.substr(0, pick);
+
+    while (pick < dividend.length()) {
+        if (tmp[0] == '1')
+            tmp = xor_op(divisor, tmp) + dividend[pick];
+        else
+            tmp = xor_op(string(pick, '0'), tmp) + dividend[pick];
+        pick++;
+    }
+
+    if (tmp[0] == '1')
+        tmp = xor_op(divisor, tmp);
+    else
+        tmp = xor_op(string(pick, '0'), tmp);
+
+    return tmp;   // remainder
+}
+
+
+/* Generate transmitted frame using CRC */
+string encode_data(string data, string key, string &remainder) {
+    int l_key = key.length();
+
+    // append zeros
+    string appended_data = data + string(l_key - 1, '0');
+
+    // compute remainder
+    remainder = mod2div(appended_data, key);
+
+    // return transmitted frame
+    return data + remainder;
+}
+
+
+/* Flip bits at given positions to simulate transmission error */
+string introduce_error(string frame, vector<int> positions) {
+    for (int pos : positions) {
+        frame[pos] = (frame[pos] == '0') ? '1' : '0';
+    }
+    return frame;
+}
+
+
+/* Check CRC at receiver */
+bool crc_check(string frame, string key) {
+    string remainder = mod2div(frame, key);
+    return remainder.find('1') == string::npos;   // true if all zeros
+}
+
+
+/* Generate random k-bit binary message */
+string generate_random_bits(int k) {
+    string s = "";
+    for (int i = 0; i < k; i++)
+        s += (rand() % 2) ? '1' : '0';
+    return s;
+}
+
+
+/* ================= MAIN PROGRAM ================= */
+int main() {
+
+    srand(time(0));   // seed for randomness
+
+    cout << "===== CRC ENCODING TEST CASES =====\n\n";
+
+    string key = "110101";   // given CRC polynomial
+
+    /* -------- Test Case 1 -------- */
+    string data1 = "1011110111";
+    string rem1;
+    string frame1 = encode_data(data1, key, rem1);
+
+    cout << "Test Case 1\n";
+    cout << "Data: " << data1 << "\n";
+    cout << "CRC: " << rem1 << "\n";
+    cout << "Transmitted Frame: " << frame1 << "\n\n";
+
+
+    /* -------- Test Case 2 -------- */
+    string data2 = "0000111000";
+    string rem2;
+    string frame2 = encode_data(data2, key, rem2);
+
+    cout << "Test Case 2\n";
+    cout << "Data: " << data2 << "\n";
+    cout << "CRC: " << rem2 << "\n";
+    cout << "Transmitted Frame: " << frame2 << "\n\n";
+
+
+    cout << "===== PART-2: ERROR DETECTION =====\n\n";
+
+    /* (a) Generate random 10-bit message */
+    string data = generate_random_bits(10);
+
+    /* (b) Generate 15-bit transmitted frame using P = 110101 */
+    string crc;
+    string transmitted = encode_data(data, key, crc);
+
+    cout << "Original 10-bit Data: " << data << "\n";
+    cout << "Generated CRC: " << crc << "\n";
+    cout << "15-bit Transmitted Frame T: " << transmitted << "\n\n";
+
+
+    /* (c) Introduce transmission errors at any bit positions */
+    string received = introduce_error(transmitted, {2, 7});
+
+    cout << "Received Frame (after errors): " << received << "\n";
+
+
+    /* (d) Apply CRC check */
+    if (crc_check(received, key))
+        cout << "Result: Frame ACCEPTED (No error detected)\n";
+    else
+        cout << "Result: Frame DISCARDED (Error detected)\n";
+
+    return 0;
+}
